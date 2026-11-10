@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - snapcraft.yaml
+      - .github/workflows/release.yaml
   workflow_dispatch: {}
 
 permissions:

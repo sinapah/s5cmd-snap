@@ -1,0 +1,46 @@
+name: Release Snap
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - snapcraft.yaml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release s5cmd (amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Install dependencies
+        run: |
+          sudo snap install concierge --classic
+          sudo concierge prepare -p crafts
+      - name: Pack snap
+        run: snapcraft pack --build-for=amd64
+      - name: Upload and release to latest/edge
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          snap_files=(*.snap)
+          if [[ ${#snap_files[@]} -ne 1 || ! -e "${snap_files[0]}" ]]; then
+            echo "× Error: expected exactly one .snap file, found ${#snap_files[@]}"
+            exit 1
+          fi
+          snapcraft upload "${snap_files[0]}" --release=latest/edge
+      - name: Open SSH session on failure
+        if: ${{ failure() && (runner.debug == '1') }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          timeout-minutes: 30
+          limit-access-to-actor: true
